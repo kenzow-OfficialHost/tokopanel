@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — MarketPanelServer</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="cloud-scene" aria-hidden="true">
+  <div class="cloud-shape c1"></div>
+  <div class="cloud-shape c2"></div>
+  <div class="cloud-shape c3"></div>
+  <div class="cloud-shape c4"></div>
+</div>
+
+<nav style="position:relative;z-index:1;">
+  <a class="logo" href="/">MarketPanelServer</a>
+  <div class="nav-links">
+    <a href="/menu.html">Paket</a>
+    <a href="/dashboard.html">Dashboard</a>
+    <div id="nav-user-slot" style="display:flex;gap:16px;align-items:center;"></div>
+  </div>
+</nav>
+
+<div class="checkout-steps" id="checkout-steps">
+  <div class="step active" id="step-1"></div>
+  <div class="step" id="step-2"></div>
+</div>
+
+<div id="step-form" class="form-card pop-in" style="max-width:460px;position:relative;z-index:1;">
+  <h2 id="form-title">Checkout Paket</h2>
+  <div class="error-msg" id="err"></div>
+
+  <div id="egg-field" style="display:none;">
+    <label style="display:block;font-size:13px;color:var(--text-dim);margin-bottom:8px;">Pilih Egg</label>
+    <div class="egg-select">
+      <div class="egg-option" data-egg="minecraft"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>Minecraft</div>
+      <div class="egg-option" data-egg="whatsapp"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>WhatsApp Bot</div>
+    </div>
+  </div>
+
+  <div class="field" id="server-name-field">
+    <label>Nama Server</label>
+    <input type="text" id="server_name" placeholder="contoh: server-survival-1" />
+  </div>
+
+  <button class="btn btn-primary btn-block" id="btn-checkout">Buat Pesanan & Bayar</button>
+</div>
+
+<div id="step-qr" class="checkout-box pop-in" style="display:none;position:relative;z-index:1;">
+  <h2 id="invoice-code"></h2>
+  <div class="checkout-amount" id="amount"></div>
+  <img id="qr-img" alt="QRIS" />
+  <div><span class="checkout-status status-pending" id="status-badge"><span class="dot"></span> Menunggu Pembayaran</span></div>
+
+  <button class="btn btn-outline" id="btn-cancel-order" style="margin-top:16px;">Batalkan Pesanan</button>
+
+  <div style="background:rgba(var(--glow-rgb),.05);border:1px solid rgba(var(--glow-rgb),.15);border-radius:12px;padding:16px 18px;margin-top:18px;text-align:left;font-size:13px;color:var(--text-dim);line-height:1.7;">
+    <b style="color:var(--text);display:block;margin-bottom:6px;">Cara Pembayaran & Verifikasi</b>
+    1. Scan QRIS di atas pakai aplikasi e-wallet atau m-banking kamu.<br>
+    2. Nominal sudah otomatis sesuai paket — jangan diubah manual.<br>
+    3. Setelah bayar, silakan tunggu konfirmasi otomatis dari sistem yang diverifikasi admin, estimasi 1–5 menit.<br>
+    4. Data login panel akan otomatis muncul di <a href="/dashboard.html" style="color:var(--accent2)">Dashboard</a> kamu begitu status berubah jadi Selesai.<br>
+    5. Berubah pikiran sebelum bayar? Klik "Batalkan Pesanan" di atas.<br><br>
+    Terima kasih sudah berbelanja di MarketPanelServer.
+  </div>
+</div>
+
+<footer>© 2026 MarketPanelServer · marketpanel.kenxzo.my.id</footer>
+
+<script src="/js/common.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const packageId = params.get("package_id");
+const duration = params.get("duration") || "weekly";
+let selectedEgg = null;
+let isAdminPanel = false;
+let needsEgg = false;
+let pollTimer;
+let currentOrderId = null;
+
+async function guard() {
+  const user = await getCurrentUser();
+  if (!user) {
+    window.location.href = `/login.html?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    return;
+  }
+  if (!packageId) {
+    window.location.href = "/menu.html";
+    return;
+  }
+  await loadPackageInfo();
+}
+
+async function loadPackageInfo() {
+  const { packages } = await apiFetch("/api/packages");
+  const all = [...packages.pterodactyl, ...packages.pyrodactyl, ...packages.admin_panel, ...packages.private];
+  const pkg = all.find(p => p.id == packageId);
+  if (!pkg) { window.location.href = "/menu.html"; return; }
+
+  isAdminPanel = pkg.category === "admin_panel";
+  needsEgg = pkg.category === "pterodactyl" || pkg.category === "pyrodactyl" || pkg.category === "private";
+  const price = duration === "monthly" ? pkg.price_monthly : pkg.price_weekly;
+  document.getElementById("form-title").textContent =
+    `${pkg.name} — ${formatRupiah(price)} / ${duration === "monthly" ? "bulan" : "minggu"}`;
+
+  if (isAdminPanel) {
+    document.getElementById("egg-field").style.display = "none";
+    document.getElementById("server-name-field").style.display = "none";
+  } else if (needsEgg) {
+    document.getElementById("egg-field").style.display = "block";
+  }
+}
+
+document.querySelectorAll(".egg-option").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".egg-option").forEach(o => o.classList.remove("selected"));
+    el.classList.add("selected");
+    selectedEgg = el.dataset.egg;
+  });
+});
+
+document.getElementById("btn-checkout").addEventListener("click", async () => {
+  const errBox = document.getElementById("err");
+  errBox.style.display = "none";
+
+  const server_name = document.getElementById("server_name").value.trim();
+  if (needsEgg && !selectedEgg) {
+    errBox.textContent = "Pilih egg dulu (Minecraft atau WhatsApp Bot)";
+    errBox.style.display = "block";
+    return;
+  }
+  if (!isAdminPanel && server_name.length < 3) {
+    errBox.textContent = "Nama server minimal 3 karakter";
+    errBox.style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById("btn-checkout");
+  btn.disabled = true;
+  btn.textContent = "Memproses...";
+
+  try {
+    const order = await apiFetch("/api/orders/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        package_id: packageId,
+        duration,
+        egg_choice: needsEgg ? selectedEgg : null,
+        server_name: isAdminPanel ? "Reseller Panel Request" : server_name,
+      }),
+    });
+    currentOrderId = order.order_id;
+    document.getElementById("step-form").style.display = "none";
+    document.getElementById("step-qr").style.display = "block";
+    document.getElementById("step-1").classList.add("done");
+    document.getElementById("step-2").classList.add("active");
+    document.getElementById("invoice-code").textContent = order.invoice_code;
+    await loadQr(order.order_id);
+    pollTimer = setInterval(() => pollStatus(order.order_id), 5000);
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Buat Pesanan & Bayar";
+  }
+});
+
+document.getElementById("btn-cancel-order").addEventListener("click", async () => {
+  if (!currentOrderId) return;
+  if (!confirm("Batalkan pesanan ini?")) return;
+  try {
+    await apiFetch(`/api/orders/${currentOrderId}/cancel`, { method: "POST" });
+    clearInterval(pollTimer);
+    const badge = document.getElementById("status-badge");
+    badge.className = "checkout-status status-cancelled";
+    badge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>Pesanan Dibatalkan`;
+    document.getElementById("btn-cancel-order").style.display = "none";
+    setTimeout(() => (window.location.href = "/dashboard.html"), 1500);
+  } catch (e) {
+    alert("Gagal membatalkan: " + e.message);
+  }
+});
+
+async function loadQr(orderId) {
+  const data = await apiFetch(`/api/orders/${orderId}/qr`);
+  document.getElementById("qr-img").src = data.qr_image;
+  document.getElementById("amount").textContent = formatRupiah(data.amount);
+}
+
+async function pollStatus(orderId) {
+  try {
+    const { order } = await apiFetch(`/api/orders/${orderId}/status`);
+    const badge = document.getElementById("status-badge");
+    if (order.status === "paid") {
+      badge.className = "checkout-status status-paid";
+      badge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M20 6 9 17l-5-5"/></svg>Pembayaran Berhasil`;
+      document.getElementById("btn-cancel-order").style.display = "none";
+      clearInterval(pollTimer);
+      setTimeout(() => (window.location.href = "/dashboard.html"), 2500);
+    } else if (order.status === "cancelled" || order.status === "expired") {
+      badge.className = "checkout-status status-" + order.status;
+      badge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>` + "Pesanan " + (order.status === "expired" ? "Kedaluwarsa" : "Dibatalkan");
+      document.getElementById("btn-cancel-order").style.display = "none";
+      clearInterval(pollTimer);
+    }
+  } catch {}
+}
+
+guard();
+</script>
+</body>
+</html>

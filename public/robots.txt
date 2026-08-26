@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /admin.html
+Disallow: /checkout.html
+Disallow: /api/
+
+Sitemap: https://marketpanel.kenxzo.my.id/sitemap.xml

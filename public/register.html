@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daftar — MarketPanelServer</title>
+<meta name="description" content="Buat akun MarketPanelServer, didukung infrastruktur Kenzo Server.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="cloud-scene" aria-hidden="true">
+  <div class="cloud-shape c1"></div>
+  <div class="cloud-shape c2"></div>
+</div>
+
+<nav style="position:relative;z-index:1;">
+  <a class="logo" href="/">MarketPanelServer</a>
+  <div class="nav-links"><a href="/login.html">Login</a></div>
+</nav>
+
+<div class="auth-shell">
+  <div class="auth-intro pop-in">
+    <span class="intro-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9z"/></svg> Ditenagai Kenzo Server</span>
+    <h1>Gabung ke <span>MarketPanelServer</span> hari ini</h1>
+    <p>
+      Kenzo Server adalah infrastruktur di balik MarketPanelServer — memastikan setiap panel
+      Pterodactyl & Pyrodactyl yang kamu sewa berjalan stabil, dengan listrik & jaringan
+      terjaga, dan tim yang siap bantu lewat WhatsApp. Daftar sekarang, checkout paket favorit
+      kamu, dan panel siap dipakai begitu pembayaran QRIS terverifikasi.
+    </p>
+    <ul>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span> Server game & bot WhatsApp aktif dalam hitungan menit</li>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Bayar simpel pakai QRIS, tanpa transfer manual ribet</li>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span> Semua riwayat & masa aktif terpantau di satu dashboard</li>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span> Data akun kamu terenkripsi & aman</li>
+    </ul>
+  </div>
+
+  <div class="form-card pop-in">
+    <h2>Buat Akun Baru</h2>
+    <div class="error-msg" id="err"></div>
+    <div class="field"><label>Nama Lengkap</label><input type="text" id="name" autocomplete="name"></div>
+    <div class="field"><label>Email</label><input type="email" id="email" autocomplete="email"></div>
+    <div class="field"><label>No. WhatsApp</label><input type="text" id="phone" placeholder="08xxxxxxxxxx" autocomplete="tel"></div>
+    <div class="field"><label>Password</label><input type="password" id="password" placeholder="minimal 6 karakter" autocomplete="new-password"></div>
+    <button class="btn btn-primary btn-block" id="btn-register">Daftar</button>
+    <div class="form-footer">Sudah punya akun? <a href="/login.html" style="color:var(--accent)">Login di sini</a></div>
+  </div>
+</div>
+
+<footer>© 2026 MarketPanelServer · marketpanel.kenxzo.my.id</footer>
+
+<script src="/js/common.js"></script>
+<script>
+document.getElementById("btn-register").addEventListener("click", () => doRegister());
+document.getElementById("password").addEventListener("keydown", (e) => { if (e.key === "Enter") doRegister(); });
+
+async function doRegister() {
+  const errBox = document.getElementById("err");
+  errBox.style.display = "none";
+
+  const body = {
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    password: document.getElementById("password").value,
+  };
+
+  if (!body.name || !body.email || !body.password) {
+    errBox.textContent = "Nama, email, dan password wajib diisi";
+    errBox.style.display = "block";
+    return;
+  }
+  if (body.password.length < 6) {
+    errBox.textContent = "Password minimal 6 karakter";
+    errBox.style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById("btn-register");
+  btn.disabled = true;
+  btn.textContent = "Memproses...";
+
+  try {
+    await apiFetch("/api/auth/register", { method: "POST", body: JSON.stringify(body) });
+    const params = new URLSearchParams(window.location.search);
+    window.location.href = params.get("redirect") || "/dashboard.html";
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Daftar";
+  }
+}
+</script>
+</body>
+</html>

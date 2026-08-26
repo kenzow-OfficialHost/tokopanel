@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — MarketPanelServer</title>
+<meta name="description" content="Masuk ke akun MarketPanelServer, didukung infrastruktur Kenzo Server.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="cloud-scene" aria-hidden="true">
+  <div class="cloud-shape c1"></div>
+  <div class="cloud-shape c2"></div>
+</div>
+
+<nav style="position:relative;z-index:1;">
+  <a class="logo" href="/">MarketPanelServer</a>
+  <div class="nav-links"><a href="/menu.html">Paket</a></div>
+</nav>
+
+<div class="auth-shell">
+  <div class="auth-intro pop-in">
+    <span class="intro-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9z"/></svg> Ditenagai Kenzo Server</span>
+    <h1>Selamat datang kembali di <span>MarketPanelServer</span></h1>
+    <p>
+      MarketPanelServer berjalan di atas infrastruktur <b style="color:var(--text)">Kenzo Server</b> —
+      penyedia node panel Pterodactyl & Pyrodactyl dengan uptime tinggi, jaringan stabil, dan
+      resource yang benar-benar dijamin sesuai paket, tanpa oversell diam-diam. Masuk untuk
+      memantau pesanan, masa aktif panel, dan kredensial server kamu kapan saja.
+    </p>
+    <ul>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></span> Aktivasi panel otomatis setelah pembayaran QRIS diverifikasi</li>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg></span> Resource RAM / Disk / CPU terjamin sesuai paket</li>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span> Masa aktif jelas & termonitor otomatis dari dashboard</li>
+      <li><span class="dot-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span> Support cepat lewat WhatsApp, tinggal klik bubble hijau</li>
+    </ul>
+  </div>
+
+  <div class="form-card pop-in">
+    <h2>Masuk ke Akun</h2>
+    <div class="error-msg" id="err"></div>
+    <div class="field"><label>Email</label><input type="email" id="email" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input type="password" id="password" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-block" id="btn-login">Login</button>
+    <div class="form-footer">Belum punya akun? <a href="/register.html" style="color:var(--accent)">Daftar di sini</a></div>
+  </div>
+</div>
+
+<footer>© 2026 MarketPanelServer · marketpanel.kenxzo.my.id</footer>
+
+<script src="/js/common.js"></script>
+<script>
+document.getElementById("btn-login").addEventListener("click", () => doLogin());
+document.getElementById("password").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+
+async function doLogin() {
+  const errBox = document.getElementById("err");
+  errBox.style.display = "none";
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) {
+    errBox.textContent = "Email dan password wajib diisi";
+    errBox.style.display = "block";
+    return;
+  }
+
+  const btn = document.getElementById("btn-login");
+  btn.disabled = true;
+  btn.textContent = "Memproses...";
+
+  try {
+    const res = await apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
+    window.location.href = redirect || (res.role === "admin" ? "/admin.html" : "/dashboard.html");
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Login";
+  }
+}
+</script>
+</body>
+</html>

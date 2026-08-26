@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — MarketPanelServer</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<nav>
+  <a class="logo" href="/">MarketPanelServer</a>
+  <div class="nav-links">
+    <a href="/menu.html">Paket</a>
+    <div id="nav-user-slot" style="display:flex;gap:16px;align-items:center;"></div>
+  </div>
+</nav>
+
+<div class="dashboard-wrap">
+  <div class="card">
+    <h2 style="margin-bottom:6px;">Rekap Pendapatan</h2>
+    <p style="color:var(--text-dim);font-size:14px;margin-bottom:18px;">Total uang masuk dari pesanan yang sudah diverifikasi lunas.</p>
+    <div id="revenue-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">
+      <p style="color:var(--text-dim)">Memuat...</p>
+    </div>
+    <div id="revenue-detail"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="margin-bottom:6px;">Semua Pesanan</h2>
+        <p style="color:var(--text-dim);font-size:14px;">
+          Cek mutasi pembayaran manual di m-banking/e-wallet kamu, cocokkan nominal & waktu, lalu klik Verifikasi.
+          Masa aktif dicek otomatis tiap beberapa menit — server yang sudah lewat masa aktif akan dihapus otomatis dari panel.
+        </p>
+      </div>
+      <button class="btn btn-outline" id="btn-check-expired" style="white-space:nowrap;">Cek Masa Aktif Sekarang</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Invoice</th><th>User</th><th>Paket</th><th>Egg</th><th>Durasi</th><th>Server</th><th>Nominal</th><th>Aktif Sampai</th><th>Status</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="orders-body">
+          <tr><td colspan="10" style="color:var(--text-dim)">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>© 2026 MarketPanelServer · marketpanel.kenxzo.my.id</footer>
+
+<script src="/js/common.js"></script>
+<script>
+const statusMap = {
+  pending: '<span class="badge status-pending">Pending</span>',
+  paid: '<span class="badge status-paid">Selesai</span>',
+  expired: '<span class="badge status-expired">Kedaluwarsa</span>',
+  cancelled: '<span class="badge status-cancelled">Dibatalkan</span>',
+};
+
+async function guard() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") { window.location.href = "/"; return; }
+  loadOrders();
+  loadRevenue();
+}
+
+const monthNames = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+
+async function loadRevenue() {
+  const summaryBox = document.getElementById("revenue-summary");
+  const detailBox = document.getElementById("revenue-detail");
+  try {
+    const { yearly, monthly } = await apiFetch("/api/admin/stats/revenue");
+
+    if (!yearly.length) {
+      summaryBox.innerHTML = '<p style="color:var(--text-dim)">Belum ada transaksi lunas.</p>';
+      detailBox.innerHTML = "";
+      return;
+    }
+
+    summaryBox.innerHTML = yearly.map(y => `
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;">
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:6px;">Tahun ${y.year}</div>
+        <div style="font-size:24px;font-weight:800;">${formatRupiah(y.total)}</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">${y.count} transaksi lunas</div>
+      </div>
+    `).join("");
+
+    const byYear = {};
+    monthly.forEach(m => {
+      if (!byYear[m.year]) byYear[m.year] = [];
+      byYear[m.year].push(m);
+    });
+
+    detailBox.innerHTML = Object.keys(byYear).sort().reverse().map(year => `
+      <div style="margin-top:10px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text-dim);margin-bottom:8px;">Rincian Bulanan ${year}</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Bulan</th><th>Jumlah Transaksi</th><th>Total Pendapatan</th></tr></thead>
+            <tbody>
+              ${byYear[year].map(m => `
+                <tr>
+                  <td>${monthNames[parseInt(m.month, 10) - 1]}</td>
+                  <td>${m.count}</td>
+                  <td>${formatRupiah(m.total)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    summaryBox.innerHTML = `<p style="color:var(--danger)">${e.message}</p>`;
+  }
+}
+
+async function loadOrders() {
+  const body = document.getElementById("orders-body");
+  try {
+    const { orders } = await apiFetch("/api/admin/orders");
+    if (!orders.length) {
+      body.innerHTML = '<tr><td colspan="10" style="color:var(--text-dim)">Belum ada pesanan.</td></tr>';
+      return;
+    }
+    body.innerHTML = orders.map(o => {
+      const canCancel = !["cancelled", "expired"].includes(o.status);
+      return `
+      <tr>
+        <td>${o.invoice_code}</td>
+        <td>${o.user_name}<br><span style="color:var(--text-dim);font-size:12px;">${o.user_email}</span></td>
+        <td>${o.package_name}<br><span style="color:var(--text-dim);font-size:11px;">${o.category}</span></td>
+        <td>${o.egg_choice || '-'}</td>
+        <td>${o.duration === 'monthly' ? 'Bulanan' : 'Mingguan'}</td>
+        <td>${o.server_name}</td>
+        <td>${formatRupiah(o.amount)}</td>
+        <td style="font-size:12px;">${o.active_until ? new Date(o.active_until).toLocaleString("id-ID") : '-'}</td>
+        <td>${statusMap[o.status] || o.status}${o.admin_note ? `<br><span style="color:var(--warning);font-size:11px;">${o.admin_note}</span>` : ''}</td>
+        <td style="white-space:nowrap;">
+          ${o.status === "pending" ? `
+            <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;margin-bottom:4px;" onclick="verify(${o.id})">Verifikasi</button>
+            <button class="btn btn-danger" style="padding:6px 12px;font-size:12px;margin-bottom:4px;" onclick="reject(${o.id})">Tolak</button>
+          ` : (o.status === "paid" && o.category !== "admin_panel") ? `
+            <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;margin-bottom:4px;" onclick="fetchCred(${o.id})">Ambil/Reset Kredensial</button>
+          ` : ""}
+          ${canCancel ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:12px;" onclick="cancelOrder(${o.id})">Batalkan</button>` : "-"}
+        </td>
+      </tr>
+    `;
+    }).join("");
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="10" style="color:var(--danger)">${e.message}</td></tr>`;
+  }
+}
+
+async function cancelOrder(id) {
+  if (!confirm("Batalkan pesanan ini? Kalau sudah lunas & server sudah dibuat, server akan ikut dihapus dari panel.")) return;
+  try {
+    const res = await apiFetch(`/api/admin/orders/${id}/cancel`, { method: "POST" });
+    alert("Pesanan dibatalkan." + (res.server_deleted ? " Server di panel juga sudah dihapus." : ""));
+    loadOrders();
+  } catch (e) {
+    alert("Gagal: " + e.message);
+  }
+}
+
+document.getElementById("btn-check-expired").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-check-expired");
+  btn.disabled = true;
+  btn.textContent = "Memeriksa...";
+  try {
+    const res = await apiFetch("/api/admin/orders/check-expired", { method: "POST" });
+    alert(`Selesai. ${res.checked} pesanan diperiksa, ${res.processed} ditandai kedaluwarsa${res.failed ? `, ${res.failed} gagal diproses (cek log server)` : ""}.`);
+    loadOrders();
+  } catch (e) {
+    alert("Gagal: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Cek Masa Aktif Sekarang";
+  }
+});
+
+async function verify(id) {
+  if (!confirm("Pastikan kamu sudah cek mutasi & nominal cocok. Lanjutkan verifikasi & buat server otomatis?")) return;
+  try {
+    const res = await apiFetch(`/api/admin/orders/${id}/verify`, { method: "POST" });
+    let msg = res.message;
+    if (res.panel_username) {
+      msg += `\n\nPanel: ${res.panel_url}\nUsername: ${res.panel_username}\nPassword: ${res.panel_password}`;
+    }
+    alert(msg);
+    loadOrders();
+    loadRevenue();
+  } catch (e) {
+    alert("Gagal: " + e.message);
+  }
+}
+
+async function reject(id) {
+  if (!confirm("Tolak pesanan ini?")) return;
+  await apiFetch(`/api/admin/orders/${id}/reject`, { method: "POST" });
+  loadOrders();
+}
+
+async function fetchCred(id) {
+  if (!confirm("Ini akan reset password panel buyer dan generate password baru. Lanjutkan?")) return;
+  try {
+    const res = await apiFetch(`/api/admin/orders/${id}/fetch-credentials`, { method: "POST" });
+    alert(`Berhasil.\n\nUsername: ${res.username}\nPassword baru: ${res.password}\n\nData ini sekarang juga muncul di dashboard buyer.`);
+    loadOrders();
+  } catch (e) {
+    alert("Gagal: " + e.message);
+  }
+}
+
+guard();
+</script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paket Panel — MarketPanelServer</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="cloud-scene" aria-hidden="true">
+  <div class="cloud-shape c1"></div>
+  <div class="cloud-shape c2"></div>
+</div>
+
+<nav>
+  <a class="logo" href="/">MarketPanelServer</a>
+  <div class="nav-links">
+    <a href="/menu.html">Paket</a>
+    <a href="/dashboard.html">Dashboard</a>
+    <div id="nav-user-slot" style="display:flex;gap:16px;align-items:center;"></div>
+  </div>
+</nav>
+
+<div class="page-title">
+  <div class="brand-intro">
+    <svg class="brand-intro-badge" viewBox="0 0 46 46" fill="none">
+      <defs>
+        <linearGradient id="bg-cloud" x1="0" y1="0" x2="46" y2="46">
+          <stop offset="0" stop-color="#f5f6f8"/>
+          <stop offset="1" stop-color="#9aa0ab"/>
+        </linearGradient>
+      </defs>
+      <path d="M13 30c-4.4 0-8-3.4-8-7.6 0-3.9 3-7.1 6.9-7.6C13 10.3 17.1 7 22 7c5.4 0 9.9 3.9 10.7 9 3.6.5 6.3 3.5 6.3 7.1 0 4-3.3 7.3-7.4 7.3H13z" fill="url(#bg-cloud)"/>
+    </svg>
+    <span>Ditenagai Kenzo Server</span>
+  </div>
+  <h1>Pilih Paket Kamu</h1>
+  <p>Server game & bot, auto aktif setelah pembayaran diverifikasi.</p>
+</div>
+
+<div class="trust-strip">
+  <span>Pembayaran QRIS Terenkripsi</span>
+  <span>Auto Provisioning</span>
+  <span>Resource Terjamin, No Oversell</span>
+</div>
+
+<div class="tabs" id="category-tabs">
+  <button class="tab-btn active" data-cat="pterodactyl">Pterodactyl</button>
+  <button class="tab-btn" data-cat="pyrodactyl">Pyrodactyl</button>
+  <button class="tab-btn reseller-tab" data-cat="admin_panel">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    Reseller Panel Server
+  </button>
+  <button class="tab-btn gold-tab" data-cat="private">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M3 18h18l-2-9-5 4-4-7-4 7-5-4-2 9z"/></svg>
+    Private Server
+  </button>
+</div>
+
+<div class="category-info" id="category-info"></div>
+
+<div style="display:flex;justify-content:center;padding:24px 6% 0;">
+  <div class="duration-toggle" id="duration-toggle">
+    <button data-dur="weekly" class="active">Mingguan</button>
+    <button data-dur="monthly">Bulanan</button>
+  </div>
+</div>
+
+<div class="pkg-grid" id="pkg-grid">
+  <p style="color:var(--text-dim)">Memuat paket...</p>
+</div>
+
+<div id="showcase-section"></div>
+
+<footer>© 2026 MarketPanelServer · marketpanel.kenxzo.my.id</footer>
+
+<script src="/js/common.js"></script>
+<script>
+let allPackages = {};
+let currentCat = "pterodactyl";
+let currentDuration = "weekly";
+let isNewUserPromo = null; // null = belum dicek / belum login, true/false kalau sudah tau
+
+const cloudLogo = `
+<svg class="cloud-badge" viewBox="0 0 46 46" fill="none">
+  <defs>
+    <linearGradient id="cg" x1="0" y1="0" x2="46" y2="46">
+      <stop offset="0" stop-color="#f5f6f8"/>
+      <stop offset="1" stop-color="#9aa0ab"/>
+    </linearGradient>
+  </defs>
+  <path d="M13 30c-4.4 0-8-3.4-8-7.6 0-3.9 3-7.1 6.9-7.6C13 10.3 17.1 7 22 7c5.4 0 9.9 3.9 10.7 9 3.6.5 6.3 3.5 6.3 7.1 0 4-3.3 7.3-7.4 7.3H13z"
+        fill="url(#cg)" opacity="0.9"/>
+</svg>`;
+
+// Ikon dino sederhana bergaya Pterodactyl (hijau)
+const pteroIcon = `
+<svg class="cloud-badge" viewBox="0 0 46 46" fill="none">
+  <path d="M8 30c2-8 8-16 16-18 4-1 9 0 11 3-3 0-6 1-7 3 3 1 6 3 7 6-3-1-6-1-8 0 1 3 1 6-1 8-1-3-3-5-6-6-4 3-9 5-12 4z"
+        fill="#22c55e"/>
+  <circle cx="30" cy="14" r="1.6" fill="#0a0e17"/>
+</svg>`;
+
+// Ikon burung/phoenix sederhana bergaya Pyrodactyl (merah)
+const pyroIcon = `
+<svg class="cloud-badge" viewBox="0 0 46 46" fill="none">
+  <path d="M23 8c3 2 4 6 3 10 4-2 8-2 11 1-4 0-7 2-9 5 3 0 6 2 7 5-4-2-8-2-11 0-1-3-3-5-6-6-3 3-7 4-11 3 3-2 5-5 5-9-3 1-6 0-8-2 3 0 6-1 8-3-2-2-3-5-2-8 2 2 5 3 8 2-1-3 0-6 2-8z"
+        fill="#ef4444"/>
+</svg>`;
+
+// Ikon mahkota emas untuk kategori Private Server (Gold Series)
+const goldIcon = `
+<svg class="cloud-badge" viewBox="0 0 46 46" fill="none">
+  <defs>
+    <linearGradient id="gg" x1="0" y1="0" x2="46" y2="46">
+      <stop offset="0" stop-color="#f3cb6b"/>
+      <stop offset="1" stop-color="#c99a3d"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 32h30l-3-15-9 7-3-13-3 13-9-7-3 15z" fill="url(#gg)"/>
+</svg>`;
+
+// Ikon perisai untuk pernyataan privasi & keamanan
+const shieldIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>';
+const whatsappIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9.5 8.31A8.5 8.5 0 1 1 20.5 8.24"/><path d="M17.5 15.5c-.5.83-1.83 1.5-3 1.5-3.31 0-6-2.69-6-6 0-1.17.67-2.5 1.5-3"/></svg>';
+const gearIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+
+// Ikon server rack sederhana untuk kategori Reseller Panel Server (graphite/silver)
+const resellerIcon = `
+<svg class="cloud-badge" viewBox="0 0 46 46" fill="none">
+  <defs>
+    <linearGradient id="rg" x1="0" y1="0" x2="46" y2="46">
+      <stop offset="0" stop-color="#dfe3e8"/>
+      <stop offset="1" stop-color="#7d8794"/>
+    </linearGradient>
+  </defs>
+  <rect x="9" y="8" width="28" height="10" rx="2" fill="url(#rg)"/>
+  <rect x="9" y="22" width="28" height="10" rx="2" fill="url(#rg)" opacity="0.85"/>
+  <circle cx="14" cy="13" r="1.6" fill="#0a0e17"/>
+  <circle cx="14" cy="27" r="1.6" fill="#0a0e17"/>
+</svg>`;
+
+const CHECK_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const STAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.9 6.6 7.1.7-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7-5.4-4.7 7.1-.7z"/></svg>';
+
+// Pernyataan privasi/keamanan yang tampil konsisten di semua kategori paket.
+const TRUST_STATEMENT = `
+  <div class="trust-banner">
+    <div class="trust-banner-icon">${shieldIcon}</div>
+    <div class="trust-banner-text">
+      <b>Privasi &amp; Keamanan Terjamin.</b>
+      Seluruh resource yang kamu beli dialokasikan penuh dan menjadi hak milik kamu sepenuhnya —
+      tidak dibagi, tidak diduplikasi, dan tidak diakses pihak lain mana pun. Kami berkomitmen
+      menjalankan layanan secara jujur dan bertanggung jawab, tanpa pembajakan atau penyalahgunaan resource dalam bentuk apa pun.
+      Punya pertanyaan atau butuh bantuan? Klik ikon WhatsApp di pojok kanan bawah, tim kami siap membantu.
+    </div>
+  </div>`;
+
+// Info khusus untuk kategori Reseller Panel Server: cara kerja & cara mengaktifkan.
+const RESELLER_INFO = `
+  <div class="howitworks-box">
+    <div class="howitworks-title">${gearIcon} Cara Kerja &amp; Cara Mengaktifkan Reseller Panel</div>
+    <ol class="howitworks-steps">
+      <li><b>Pilih paket</b> sesuai kapasitas RAM yang kamu butuhkan (4GB / 8GB / 16GB), lalu checkout dan bayar via QRIS.</li>
+      <li><b>Verifikasi pembayaran</b> dilakukan oleh admin — karena paket ini melibatkan setup VPS &amp; instalasi panel secara manual, bukan auto-provisioning API.</li>
+      <li><b>Admin menghubungi kamu</b> untuk konfirmasi domain, kredensial akses, dan preferensi konfigurasi panel (nest, egg, tampilan).</li>
+      <li><b>Panel Pterodactyl siap pakai</b> diserahkan sepenuhnya ke kamu — kamu jadi admin penuh, bebas atur nest/egg, harga jual, dan buyer kamu sendiri.</li>
+    </ol>
+    <p class="howitworks-note">Karena butuh setup manual, aktivasi paket ini butuh waktu lebih lama dari paket lain (tidak instan). Detail proses & estimasi waktu akan dijelaskan admin lewat WhatsApp setelah checkout.</p>
+  </div>`;
+
+function badgeIcon(category) {
+  if (category === "pterodactyl") return pteroIcon;
+  if (category === "pyrodactyl") return pyroIcon;
+  if (category === "private") return goldIcon;
+  if (category === "admin_panel") return resellerIcon;
+  return cloudLogo;
+}
+
+function updateCategoryInfo() {
+  const box = document.getElementById("category-info");
+  let html = TRUST_STATEMENT;
+  if (currentCat === "admin_panel") html += RESELLER_INFO;
+  box.innerHTML = html;
+}
+
+const serverIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><circle cx="6" cy="7" r="1"/><circle cx="6" cy="17" r="1"/></svg>';
+
+function updateShowcase() {
+  const box = document.getElementById("showcase-section");
+  if (currentCat === "pterodactyl") {
+    box.innerHTML = `
+      <div class="showcase-box">
+        <div class="showcase-title">${serverIcon} Image Server of Pterodactyl</div>
+        <img src="/img/showcase-pterodactyl.png" alt="Tampilan dashboard panel Pterodactyl" loading="lazy">
+      </div>`;
+  } else if (currentCat === "pyrodactyl") {
+    box.innerHTML = `
+      <div class="showcase-box">
+        <div class="showcase-title">${serverIcon} Image Server of Pyrodactyl</div>
+        <img src="/img/showcase-pyrodactyl.png" alt="Tampilan dashboard panel Pyrodactyl" loading="lazy">
+      </div>`;
+  } else {
+    box.innerHTML = "";
+  }
+}
+
+async function loadPackages() {
+  try {
+    const { packages } = await apiFetch("/api/packages");
+    allPackages = packages;
+    render();
+  } catch (e) {
+    document.getElementById("pkg-grid").innerHTML = `<p style="color:var(--danger)">Gagal memuat paket: ${e.message}</p>`;
+  }
+}
+
+async function loadPromoStatus() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) { isNewUserPromo = null; return; }
+    const res = await apiFetch("/api/orders/promo-status");
+    isNewUserPromo = res.new_user;
+  } catch {
+    isNewUserPromo = null;
+  }
+  render();
+}
+
+// Promo "Pengguna Baru": Unlimited (Pterodactyl/Pyrodactyl) Bulanan Rp5.000
+// khusus checkout pertama. Harga final SELALU ditentukan backend saat
+// checkout — ini cuma tampilan info di menu, bukan sumber kebenaran harga.
+function isUnlimitedMonthlyPromo(p) {
+  return (
+    (p.category === "pterodactyl" || p.category === "pyrodactyl") &&
+    p.name === "Unlimited" &&
+    currentDuration === "monthly"
+  );
+}
+
+function render() {
+  const grid = document.getElementById("pkg-grid");
+  const list = allPackages[currentCat] || [];
+  if (!list.length) {
+    grid.innerHTML = '<p style="color:var(--text-dim)">Belum ada paket di kategori ini.</p>';
+    return;
+  }
+
+  grid.innerHTML = list.map((p, i) => {
+    const price = currentDuration === "monthly" ? p.price_monthly : p.price_weekly;
+    const isAdmin = p.category === "admin_panel";
+    const isPrivate = p.category === "private";
+    const specs = isAdmin
+      ? [
+          `${p.ram_mb} MB RAM VPS`,
+          `${p.cpu_percent}% CPU`,
+          `Panel Pterodactyl atas nama kamu sendiri`,
+          `Setup awal dibantu penuh oleh admin`,
+        ]
+      : isPrivate
+      ? [
+          `${p.ram_mb} MB RAM Dedicated`,
+          p.disk_mb === 0 ? "Disk Mengikuti Kapasitas VPS" : p.disk_mb + " MB Disk NVMe",
+          `${p.cpu_percent}% CPU (4 Core Penuh)`,
+          p.databases === 0 ? "Database Tanpa Batas Ketat" : `${p.databases} Database Privat`,
+          p.backups === 0 ? "Backup Tanpa Batas Ketat" : `${p.backups} Slot Backup Otomatis`,
+          "Pilihan Egg: Minecraft / WhatsApp Bot",
+        ]
+      : [
+          p.ram_mb === 0 ? "Unlimited RAM" : p.ram_mb + " MB RAM",
+          p.disk_mb === 0 ? "Unlimited Disk" : p.disk_mb + " MB Disk",
+          `${p.cpu_percent}% CPU`,
+          `${p.databases} Database`,
+          `${p.backups} Backup Slot`,
+          `Pilihan Egg: Minecraft / WhatsApp Bot`,
+        ];
+
+    const benefits = Array.isArray(p.benefits) ? p.benefits : [];
+    const showPromo = isUnlimitedMonthlyPromo(p);
+    const promoEligible = showPromo && isNewUserPromo === true;
+    const promoUnknown = showPromo && isNewUserPromo === null; // belum login / belum dicek
+
+    return `
+      <div class="pkg-card pop-in ${p.badge ? 'popular' : ''} ${isPrivate ? 'gold' : ''} ${isAdmin ? 'reseller' : ''}" style="animation-delay:${i * 45}ms">
+        ${p.badge ? `<div class="pkg-badge ${isPrivate ? 'gold-badge' : ''} ${isAdmin ? 'reseller-badge' : ''}">${p.badge}</div>` : ""}
+        ${badgeIcon(p.category)}
+        <div class="pkg-name">${p.name}</div>
+        <div class="pkg-price-row">
+          ${promoEligible ? `<span class="pkg-price-old">${formatRupiah(price)}</span>` : ""}
+          <div class="pkg-price">${promoEligible ? formatRupiah(5000) : formatRupiah(price)}</div>
+          <span style="font-size:13px;color:var(--text-dim);">/ ${currentDuration === "monthly" ? "bulan" : "minggu"}</span>
+        </div>
+        ${(showPromo && (promoEligible || (!promoEligible && !promoUnknown))) ? `
+          <div class="promo-note">
+            ${promoEligible
+              ? "Promo Pengguna Baru aktif! Checkout sekarang cuma Rp5.000, harga ini berlaku sekali untuk order pertamamu."
+              : "Promo pengguna baru sudah pernah kamu pakai — harga berikutnya normal seperti di atas."}
+          </div>` : ""}
+        <ul class="pkg-specs">${specs.map(s => `<li>${CHECK_SVG}<span>${s}</span></li>`).join("")}</ul>
+        ${benefits.length ? `
+        <div class="pkg-benefits">
+          <div class="pkg-benefits-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+            Benefit Tambahan
+          </div>
+          <ul class="pkg-benefits-list">${benefits.map(b => `<li>${STAR_SVG}<span>${b}</span></li>`).join("")}</ul>
+        </div>` : ""}
+        <button class="btn btn-primary btn-block" onclick="pilihPaket(${p.id})">Order Now</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function playBounce(btn) {
+  btn.classList.remove("bounce");
+  void btn.offsetWidth; // restart animation kalau diklik cepat berkali-kali
+  btn.classList.add("bounce");
+}
+
+document.getElementById("category-tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  playBounce(btn);
+  currentCat = btn.dataset.cat;
+  updateCategoryInfo();
+  updateShowcase();
+  render();
+});
+
+document.getElementById("duration-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  document.querySelectorAll("#duration-toggle button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  playBounce(btn);
+  currentDuration = btn.dataset.dur;
+  render();
+});
+
+async function pilihPaket(id) {
+  const user = await getCurrentUser();
+  const url = `/checkout.html?package_id=${id}&duration=${currentDuration}`;
+  if (!user) {
+    window.location.href = `/login.html?redirect=${encodeURIComponent(url)}`;
+    return;
+  }
+  window.location.href = url;
+}
+
+loadPackages();
+updateCategoryInfo();
+updateShowcase();
+loadPromoStatus();
+</script>
+</body>
+</html>
