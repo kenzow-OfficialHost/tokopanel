@@ -54,6 +54,11 @@ async function generateQris(amount) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    // Log detail lengkap ke Vercel Runtime Logs supaya gampang di-debug —
+    // pesan error dari API pihak ketiga sering kasih alasan spesifik
+    // (misal: qris_id tidak valid, akun belum aktivasi, dsb) yang perlu
+    // dilihat lengkap, bukan cuma "generate-qris gagal".
+    console.error("[QRISLY generate-qris] HTTP", res.status, "response:", JSON.stringify(data));
     throw Object.assign(
       new Error(data.message || data.error || `QRISLY generate-qris gagal (HTTP ${res.status})`),
       { status: 502 }
