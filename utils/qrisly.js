@@ -29,8 +29,6 @@ function getApiKey() {
 function getQrisId() {
   const id = process.env.QRISLY_QRIS_ID;
   if (!id) throw Object.assign(new Error("QRISLY_QRIS_ID belum diisi di .env"), { status: 500 });
-  // Komerce mewajibkan qris_id berupa integer di request JSON (bukan string),
-  // sedangkan env variable di Vercel/Node selalu berbentuk string -> konversi dulu.
   const numId = Number(id);
   if (Number.isNaN(numId)) {
     throw Object.assign(new Error(`QRISLY_QRIS_ID harus berupa angka, sekarang isinya: "${id}"`), { status: 500 });
@@ -38,11 +36,6 @@ function getQrisId() {
   return numId;
 }
 
-/**
- * Generate QRIS dinamis untuk satu transaksi.
- * @param {number} amount - nominal dalam Rupiah (integer)
- * @returns {Promise<{history_id:number, qris_string:string, original_amount:number, final_amount:number, payment_status:string, expiry_time:string}>}
- */
 async function generateQris(amount) {
   const res = await fetch(`${BASE_URL}/generate-qris`, {
     method: "POST",
@@ -57,12 +50,22 @@ async function generateQris(amount) {
     }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    console.error("[QRISLY generate-qris] HTTP", res.status, "response:", JSON.stringify(data));
+    console.error("[QRISLY generate-qris] HTTP", res.status, "response:", JSON.stringify(raw));
     throw Object.assign(
-      new Error(data.message || data.error || `QRISLY generate-qris gagal (HTTP ${res.status})`),
+      new Error(raw.message || raw.error || `QRISLY generate-qris gagal (HTTP ${res.status})`),
+      { status: 502 }
+    );
+  }
+
+  const data = raw && typeof raw === "object" && raw.data && typeof raw.data === "object" ? raw.data : raw;
+
+  if (!data.qris_string || data.history_id === undefined || data.history_id === null) {
+    console.error("[QRISLY generate-qris] Response tidak sesuai format yang diharapkan:", JSON.stringify(raw));
+    throw Object.assign(
+      new Error("Response QRISLY generate-qris tidak berisi qris_string/history_id yang diharapkan (cek Vercel Logs untuk raw response)"),
       { status: 502 }
     );
   }
@@ -70,11 +73,6 @@ async function generateQris(amount) {
   return data;
 }
 
-/**
- * Cek status pembayaran suatu history_id ke Komerce.
- * Berguna untuk polling manual dari frontend (fallback kalau webhook telat/gagal).
- * @param {number|string} historyId
- */
 async function getPaymentStatus(historyId) {
   const res = await fetch(`${BASE_URL}/payment-status/${historyId}`, {
     method: "GET",
