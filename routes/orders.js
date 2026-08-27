@@ -2,7 +2,7 @@ const express = require("express");
 const QRCode = require("qrcode");
 const db = require("../config/db");
 const { requireAuth } = require("../middleware/auth");
-const { generateDynamicQris } = require("../utils/qris");
+const { generateQris } = require("../utils/qrisly");
 const asyncHandler = require("../utils/asyncHandler");
 
 const router = express.Router();
@@ -83,25 +83,26 @@ router.post(
       usedPromo = true;
     }
 
-    const staticQris = process.env.QRIS_STATIC_STRING;
-    if (!staticQris) {
-      return res.status(500).json({ error: "QRIS_STATIC_STRING belum diisi admin di .env" });
-    }
-
-    let dynamicPayload;
+    // Generate QRIS dinamis lewat Komerce QRISLY API (bukan manipulasi manual lagi).
+    // Komerce yang mencatat transaksi ini (history_id) & yang akan mengirim
+    // webhook otomatis begitu pembayaran masuk.
+    let qrisly;
     try {
-      dynamicPayload = generateDynamicQris(staticQris, price);
+      qrisly = await generateQris(price);
     } catch (e) {
-      return res.status(500).json({ error: "Gagal generate QRIS: " + e.message });
+      return res.status(e.status || 500).json({ error: "Gagal generate QRIS: " + e.message });
     }
 
     const invoice = genInvoiceCode();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    // Pakai expiry_time dari Komerce kalau tersedia, fallback 15 menit dari sekarang.
+    const expiresAt = qrisly.expiry_time
+      ? new Date(qrisly.expiry_time).toISOString()
+      : new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     const info = await db
       .prepare(
-        `INSERT INTO orders (invoice_code, user_id, package_id, category, duration, egg_choice, amount, server_name, qris_payload, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO orders (invoice_code, user_id, package_id, category, duration, egg_choice, amount, server_name, qris_payload, qrisly_history_id, qrisly_status, qrisly_final_amount, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         invoice,
@@ -112,7 +113,10 @@ router.post(
         needsEgg ? egg_choice : null,
         price,
         isAdminPanel ? `Admin Panel - ${req.user.name}` : server_name.trim(),
-        dynamicPayload,
+        qrisly.qris_string,
+        String(qrisly.history_id),
+        qrisly.payment_status || "unpaid",
+        qrisly.final_amount || price,
         expiresAt
       );
 
@@ -120,7 +124,7 @@ router.post(
       success: true,
       order_id: info.lastInsertRowid,
       invoice_code: invoice,
-      amount: price,
+      amount: qrisly.final_amount || price,
       expires_at: expiresAt,
     });
   })
@@ -134,10 +138,52 @@ router.get(
     if (!order) return res.status(404).json({ error: "Order tidak ditemukan" });
     try {
       const dataUrl = await QRCode.toDataURL(order.qris_payload, { width: 320, margin: 1 });
-      res.json({ qr_image: dataUrl, amount: order.amount, status: order.status, expires_at: order.expires_at });
+      res.json({
+        qr_image: dataUrl,
+        // Nominal PERSIS yang harus dibayar (Komerce menambahkan kode unik di
+        // belakang, misal Rp10.000 -> Rp10.001, supaya pembayaran gampang
+        // dicocokkan otomatis). Tampilkan qrisly_final_amount ini ke buyer,
+        // JANGAN "amount" biasa, atau verifikasi otomatis bisa gagal cocok.
+        amount: order.qrisly_final_amount || order.amount,
+        status: order.status,
+        expires_at: order.expires_at,
+      });
     } catch (e) {
       res.status(500).json({ error: "Gagal render QR: " + e.message });
     }
+  })
+);
+
+// Fallback polling: cek langsung ke Komerce kalau-kalau webhook telat/gagal
+// terkirim. Frontend bisa panggil ini tiap beberapa detik selagi user
+// menunggu di halaman checkout.
+router.get(
+  "/:id/sync-status",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const order = await db.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?").get(req.params.id, req.user.id);
+    if (!order) return res.status(404).json({ error: "Order tidak ditemukan" });
+
+    // Kalau sudah paid di DB kita (misal dari webhook), tidak perlu tanya Komerce lagi.
+    if (order.status === "paid" || !order.qrisly_history_id) {
+      return res.json({ order_status: order.status });
+    }
+
+    const { getPaymentStatus } = require("../utils/qrisly");
+    let remote;
+    try {
+      remote = await getPaymentStatus(order.qrisly_history_id);
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: "Gagal cek status ke QRISLY: " + e.message });
+    }
+
+    if (remote.payment_status === "paid" && order.status !== "paid") {
+      const { verifyAndProvision } = require("./admin");
+      const result = await verifyAndProvision(order.id);
+      return res.json({ order_status: "paid", provisioned: !result.manual });
+    }
+
+    res.json({ order_status: order.status, qrisly_status: remote.payment_status });
   })
 );
 

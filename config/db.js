@@ -129,6 +129,10 @@ async function migrate() {
     ["panel_username", "TEXT"],
     ["panel_password", "TEXT"],
     ["panel_url", "TEXT"],
+    // Kolom untuk integrasi Komerce QRISLY API (auto-verifikasi pembayaran)
+    ["qrisly_history_id", "TEXT"],
+    ["qrisly_status", "TEXT DEFAULT 'unpaid'"],
+    ["qrisly_final_amount", "INTEGER"],
   ]);
 
   const countRes = await client.execute("SELECT COUNT(*) as c FROM packages");
