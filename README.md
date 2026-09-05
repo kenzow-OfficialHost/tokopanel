@@ -1,6 +1,6 @@
 # TokoPanel — Panduan Deploy ke VPS
 
-Target: VPS `38.49.208.28` → domain `marketpanel.kenxzo.my.id`
+Target: VPS `38.49.208.28` → domain `pterodactyl.kenxzo.my.id`
 
 ## 1. Persiapan awal di VPS
 
@@ -19,7 +19,7 @@ npm install -g pm2
 
 Di DNS provider domain `kenxzo.my.id`, buat A record:
 ```
-marketpanel.kenxzo.my.id  ->  A  ->  38.49.208.28
+pterodactyl.kenxzo.my.id  ->  A  ->  38.49.208.28
 ```
 Tunggu propagasi DNS (biasanya beberapa menit - 1 jam).
 
@@ -73,7 +73,7 @@ Isi:
 ```nginx
 server {
     listen 80;
-    server_name marketpanel.kenxzo.my.id;
+    server_name pterodactyl.kenxzo.my.id;
 
     location / {
         proxy_pass http://localhost:3000;
@@ -94,15 +94,15 @@ systemctl restart nginx
 
 # Pasang HTTPS gratis (Let's Encrypt)
 apt install -y certbot python3-certbot-nginx
-certbot --nginx -d marketpanel.kenxzo.my.id
+certbot --nginx -d pterodactyl.kenxzo.my.id
 ```
 
-Setelah ini, situs kamu sudah live di `https://marketpanel.kenxzo.my.id`.
+Setelah ini, situs kamu sudah live di `https://pterodactyl.kenxzo.my.id`.
 
 ## 7. Cara pakai sehari-hari
 
 - **Kelola paket**: langsung lewat SQLite di `data/tokopanel.db`, atau tambahkan endpoint admin UI kalau mau (route `PUT/POST /api/packages` sudah tersedia, tinggal dibuatkan form-nya kalau perlu).
-- **Verifikasi pembayaran**: buka `https://marketpanel.kenxzo.my.id/admin.html`, login pakai akun admin, cek mutasi bank/e-wallet kamu, cocokkan nominal & waktu dengan invoice, klik **Verifikasi** → server Pterodactyl otomatis dibuat & di-assign ke user.
+- **Verifikasi pembayaran**: buka `https://pterodactyl.kenxzo.my.id/admin.html`, login pakai akun admin, cek mutasi bank/e-wallet kamu, cocokkan nominal & waktu dengan invoice, klik **Verifikasi** → server Pterodactyl otomatis dibuat & di-assign ke user.
 - **Kalau nanti mau auto-verifikasi tanpa cek manual**: langganan layanan cek mutasi QRIS (mis. OkeConnect, Tripay, dsb), lalu minta bantuan saya untuk menyambungkan providernya ke endpoint `POST /api/webhook/qris-paid` yang sudah disiapkan di `routes/webhook.js` (tinggal isi `WEBHOOK_SECRET` di `.env` dan sesuaikan nama field sesuai dokumentasi provider).
 
 ## 8. Struktur project

@@ -54,7 +54,7 @@ git push -u origin main
 
 ## 5. Custom domain (opsional)
 
-Project Settings → Domains → tambahkan domain kamu (mis. `marketpanel.kenxzo.my.id`), lalu ikuti instruksi DNS (biasanya tinggal tambah CNAME ke `cname.vercel-dns.com`).
+Project Settings → Domains → tambahkan domain kamu (mis. `pterodactyl.kenxzo.my.id`), lalu ikuti instruksi DNS (biasanya tinggal tambah CNAME ke `cname.vercel-dns.com`).
 
 ## Catatan
 
