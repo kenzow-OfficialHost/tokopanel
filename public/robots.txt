@@ -5,4 +5,4 @@ Disallow: /admin.html
 Disallow: /checkout.html
 Disallow: /api/
 
-Sitemap: https://pterodactyl.kenxzo.my.id/sitemap.xml
+Sitemap: https://supplyserverpanel.kenxzo.my.id/sitemap.xml
